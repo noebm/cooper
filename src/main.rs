@@ -5,8 +5,20 @@ use axum::{
     routing::get,
     Router,
 };
-use std::net::SocketAddr;
+use clap::Parser;
+use std::{net::SocketAddr, path::PathBuf};
 use tower_http::services::ServeDir;
+
+#[derive(Parser)]
+#[command(version, about)]
+struct Options {
+    /// Directory to serve. Defaults to current directory.
+    #[arg(short, long)]
+    serve_dir: Option<PathBuf>,
+
+    #[arg(short, long, default_value_t = 8000)]
+    port: u16,
+}
 
 #[derive(Template)]
 #[template(path = "directory.html")]
@@ -17,15 +29,24 @@ struct DirectoryTemplate {
 
 #[tokio::main]
 async fn main() {
-    let cwd = std::env::current_dir().unwrap();
-    println!("Serving directory {}", cwd.display());
+    let options = Options::parse();
 
-    // build our application with a single route
+    let serve_dir = options
+        .serve_dir
+        .unwrap_or_else(|| std::env::current_dir().expect("Could not retrieve current directory!"));
+
+    let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), options.port);
+
+    println!(
+        "Serving directory {} on http://{}",
+        serve_dir.display(),
+        addr
+    );
+
     let app = Router::new()
         .route("/", get(root))
-        .fallback_service(ServeDir::new(cwd));
+        .fallback_service(ServeDir::new(serve_dir));
 
-    let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), 3000);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
