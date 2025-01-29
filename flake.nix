@@ -26,7 +26,9 @@
 
         # Note: changes here will rebuild all dependency crates
         commonArgs = {
-          src = craneLib.cleanCargoSource ./.;
+          # FIXME correct filtering would be better...
+          # but craneLib.cleanCargoSource excludes the templates
+          src = ./.;
           strictDeps = true;
         };
 
