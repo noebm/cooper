@@ -44,9 +44,13 @@ async fn main() {
         addr
     );
 
-    let app = Router::new()
-        .route("/", get(root).with_state(serve_dir.clone()))
-        .fallback_service(ServeDir::new(serve_dir));
+    let directory = get(root).with_state(serve_dir.clone());
+
+    let app = Router::new().fallback_service(
+        ServeDir::new(serve_dir)
+            .append_index_html_on_directories(false)
+            .not_found_service(directory),
+    );
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
