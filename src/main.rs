@@ -67,6 +67,8 @@ async fn root(State(directory): State<PathBuf>) -> impl IntoResponse {
         items.push(path.file_name().into_string().unwrap());
     }
 
+    items.sort();
+
     let directory = DirectoryTemplate {
         directory_name,
         items,
