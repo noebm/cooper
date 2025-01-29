@@ -56,34 +56,54 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn directory(State(root): State<PathBuf>, uri: Uri) -> impl IntoResponse {
+async fn directory(State(root): State<PathBuf>, uri: Uri) -> Result<Response, Response> {
     println!("URI path {}", uri.path());
     println!("root {}", root.display());
-    let directory = root.clone().join(
-        uri.path()
-            .strip_prefix("/")
-            .expect("URI does not start with /"),
-    );
+
+    let relative_uri_path = uri
+        .path()
+        .strip_prefix("/")
+        .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "Invalid URI prefix").into_response())?;
+
+    let directory = root.clone().join(relative_uri_path);
 
     println!("Reading {}", directory.display());
 
-    let paths = std::fs::read_dir(directory).unwrap();
-    let mut items = Vec::new();
+    let paths = std::fs::read_dir(directory)
+        .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response())?;
+    let mut entries = Vec::new();
     for entry_ in paths {
-        let entry = entry_.unwrap();
+        let entry = match entry_ {
+            Ok(entry) => entry,
+            Err(msg) => {
+                eprintln!("Error accessing directory entry: {}", msg);
+                continue;
+            }
+        };
 
-        let path = entry.path().strip_prefix(&root).unwrap().to_owned();
-        let filename = path.file_name().unwrap().to_string_lossy().to_string();
-        items.push((path, filename));
+        let path = match entry.path().strip_prefix(&root) {
+            Ok(path) => path.to_owned(),
+            Err(msg) => {
+                eprintln!("Error accessing directory entry: {}", msg);
+                continue;
+            }
+        };
+
+        let Some(filename) = path.file_name().map(|s| s.to_string_lossy().to_string()) else {
+            eprintln!("Warning found path ending in '...': {}", path.display());
+            continue;
+        };
+
+        entries.push((path, filename));
     }
 
-    items.sort();
+    entries.sort();
 
     let directory = DirectoryTemplate {
         directory_name: uri.path().to_string(),
-        items,
+        items: entries,
     };
-    HtmlTemplate(directory)
+    Ok(HtmlTemplate(directory).into_response())
 }
 
 struct HtmlTemplate<T>(T);
