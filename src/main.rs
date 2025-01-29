@@ -5,6 +5,7 @@ use axum::{
     routing::get,
     Router,
 };
+use tower_http::services::ServeDir;
 
 #[derive(Template)]
 #[template(path = "directory.html")]
@@ -15,8 +16,13 @@ struct DirectoryTemplate {
 
 #[tokio::main]
 async fn main() {
+    let cwd = std::env::current_dir().unwrap();
+    println!("Serving directory {}", cwd.display());
+
     // build our application with a single route
-    let app = Router::new().route("/", get(root));
+    let app = Router::new()
+        .route("/", get(root))
+        .fallback_service(ServeDir::new(cwd));
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
