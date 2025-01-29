@@ -1,4 +1,16 @@
-use axum::{routing::get, Router};
+use askama::Template;
+use axum::{
+    http::StatusCode,
+    response::{Html, IntoResponse, Response},
+    routing::get,
+    Router,
+};
+
+#[derive(Template)]
+#[template(path = "directory.html")]
+struct DirectoryTemplate {
+    items: Vec<String>,
+}
 
 #[tokio::main]
 async fn main() {
@@ -10,6 +22,31 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn root() -> &'static str {
-    "Hello, World!"
+async fn root() -> impl IntoResponse {
+    let paths = std::fs::read_dir("./").unwrap();
+    let mut items = Vec::new();
+    for path in paths {
+        let path = path.unwrap();
+        items.push(path.file_name().into_string().unwrap());
+    }
+    let directory = DirectoryTemplate { items };
+    HtmlTemplate(directory)
+}
+
+struct HtmlTemplate<T>(T);
+
+impl<T> IntoResponse for HtmlTemplate<T>
+where
+    T: Template,
+{
+    fn into_response(self) -> Response {
+        match self.0.render() {
+            Ok(html) => Html(html).into_response(),
+            Err(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to render template. Error: {err}"),
+            )
+                .into_response(),
+        }
+    }
 }
