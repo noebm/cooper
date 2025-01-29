@@ -9,6 +9,7 @@ use axum::{
 #[derive(Template)]
 #[template(path = "directory.html")]
 struct DirectoryTemplate {
+    directory: String,
     items: Vec<String>,
 }
 
@@ -23,13 +24,22 @@ async fn main() {
 }
 
 async fn root() -> impl IntoResponse {
+    let dir = std::env::current_dir().unwrap();
+    let directory = dir
+        .file_name()
+        .unwrap()
+        .to_os_string()
+        .into_string()
+        .unwrap();
+
     let paths = std::fs::read_dir("./").unwrap();
     let mut items = Vec::new();
     for path in paths {
         let path = path.unwrap();
         items.push(path.file_name().into_string().unwrap());
     }
-    let directory = DirectoryTemplate { items };
+
+    let directory = DirectoryTemplate { directory, items };
     HtmlTemplate(directory)
 }
 
