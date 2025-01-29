@@ -5,6 +5,7 @@ use axum::{
     routing::get,
     Router,
 };
+use std::net::SocketAddr;
 use tower_http::services::ServeDir;
 
 #[derive(Template)]
@@ -24,8 +25,8 @@ async fn main() {
         .route("/", get(root))
         .fallback_service(ServeDir::new(cwd));
 
-    // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), 3000);
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
