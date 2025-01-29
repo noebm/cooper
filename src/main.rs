@@ -1,7 +1,7 @@
 use askama::Template;
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{StatusCode, Uri},
     response::{Html, IntoResponse, Response},
     routing::get,
     Router,
@@ -44,7 +44,7 @@ async fn main() {
         addr
     );
 
-    let directory = get(root).with_state(serve_dir.clone());
+    let directory = get(directory).with_state(serve_dir.clone());
 
     let app = Router::new().fallback_service(
         ServeDir::new(serve_dir)
@@ -56,13 +56,16 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn root(State(directory): State<PathBuf>) -> impl IntoResponse {
-    let directory_name = directory
-        .file_name()
-        .unwrap()
-        .to_os_string()
-        .into_string()
-        .unwrap();
+async fn directory(State(root): State<PathBuf>, uri: Uri) -> impl IntoResponse {
+    println!("URI path {}", uri.path());
+    println!("root {}", root.display());
+    let directory = root.clone().join(
+        uri.path()
+            .strip_prefix("/")
+            .expect("URI does not start with /"),
+    );
+
+    println!("Reading {}", directory.display());
 
     let paths = std::fs::read_dir(directory).unwrap();
     let mut items = Vec::new();
@@ -74,7 +77,7 @@ async fn root(State(directory): State<PathBuf>) -> impl IntoResponse {
     items.sort();
 
     let directory = DirectoryTemplate {
-        directory_name,
+        directory_name: uri.path().to_string(),
         items,
     };
     HtmlTemplate(directory)
