@@ -78,7 +78,7 @@
     <div class="file-list">
         {% for item in items %}
         <div class="file-item">
-          <a href="/{{item}}" class=file-link>{{item}}</a>
+          <a href="/{{item.0.display()}}" class=file-link>{{item.1}}</a>
         </div>
         {% endfor %}
     </div>

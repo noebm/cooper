@@ -25,7 +25,7 @@ struct Options {
 #[template(path = "directory.html")]
 struct DirectoryTemplate {
     directory_name: String,
-    items: Vec<String>,
+    items: Vec<(PathBuf, String)>,
 }
 
 #[tokio::main]
@@ -69,9 +69,12 @@ async fn directory(State(root): State<PathBuf>, uri: Uri) -> impl IntoResponse {
 
     let paths = std::fs::read_dir(directory).unwrap();
     let mut items = Vec::new();
-    for path in paths {
-        let path = path.unwrap();
-        items.push(path.file_name().into_string().unwrap());
+    for entry_ in paths {
+        let entry = entry_.unwrap();
+
+        let path = entry.path().strip_prefix(&root).unwrap().to_owned();
+        let filename = path.file_name().unwrap().to_string_lossy().to_string();
+        items.push((path, filename));
     }
 
     items.sort();
