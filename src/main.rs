@@ -1,5 +1,6 @@
 use askama::Template;
 use axum::{
+    extract::State,
     http::StatusCode,
     response::{Html, IntoResponse, Response},
     routing::get,
@@ -23,7 +24,7 @@ struct Options {
 #[derive(Template)]
 #[template(path = "directory.html")]
 struct DirectoryTemplate {
-    directory: String,
+    directory_name: String,
     items: Vec<String>,
 }
 
@@ -44,30 +45,32 @@ async fn main() {
     );
 
     let app = Router::new()
-        .route("/", get(root))
+        .route("/", get(root).with_state(serve_dir.clone()))
         .fallback_service(ServeDir::new(serve_dir));
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn root() -> impl IntoResponse {
-    let dir = std::env::current_dir().unwrap();
-    let directory = dir
+async fn root(State(directory): State<PathBuf>) -> impl IntoResponse {
+    let directory_name = directory
         .file_name()
         .unwrap()
         .to_os_string()
         .into_string()
         .unwrap();
 
-    let paths = std::fs::read_dir("./").unwrap();
+    let paths = std::fs::read_dir(directory).unwrap();
     let mut items = Vec::new();
     for path in paths {
         let path = path.unwrap();
         items.push(path.file_name().into_string().unwrap());
     }
 
-    let directory = DirectoryTemplate { directory, items };
+    let directory = DirectoryTemplate {
+        directory_name,
+        items,
+    };
     HtmlTemplate(directory)
 }
 
