@@ -78,11 +78,7 @@
     <div class="file-list">
         {% for item in items %}
         <div class="file-item">
-            <div class="file-icon">📁</div>
-            <div class="file-info">
-              <p class="file-name">{{ item }}</p>
-              <p class="file-meta">Last modified: Jan 29, 2025</p>
-            </div>
+          <a href="/{{item}}" class=file-link>{{item}}</a>
         </div>
         {% endfor %}
 
