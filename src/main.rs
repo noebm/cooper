@@ -7,6 +7,7 @@ use axum::{
     Router,
 };
 use clap::Parser;
+use percent_encoding::{percent_decode_str, percent_encode, AsciiSet, CONTROLS};
 use std::{net::SocketAddr, path::PathBuf};
 use tower_http::services::ServeDir;
 
@@ -25,7 +26,7 @@ struct Options {
 #[template(path = "directory.html")]
 struct DirectoryTemplate {
     directory_name: String,
-    items: Vec<(PathBuf, String)>,
+    items: Vec<(String, String)>,
 }
 
 #[tokio::main]
@@ -65,7 +66,9 @@ async fn directory(State(root): State<PathBuf>, uri: Uri) -> Result<Response, Re
         .strip_prefix("/")
         .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "Invalid URI prefix").into_response())?;
 
-    let directory = root.clone().join(relative_uri_path);
+    let decoded_relative_uri_path = percent_decode_str(relative_uri_path).decode_utf8_lossy();
+
+    let directory = root.clone().join(decoded_relative_uri_path.as_ref());
 
     println!("Reading {}", directory.display());
 
@@ -89,12 +92,24 @@ async fn directory(State(root): State<PathBuf>, uri: Uri) -> Result<Response, Re
             }
         };
 
+        let encoded_path = path
+            .components()
+            .map(|component| {
+                percent_encode(
+                    component.as_os_str().as_encoded_bytes(),
+                    SPECIAL_PATH_SEGMENT,
+                )
+                .to_string()
+            })
+            .collect::<Vec<_>>()
+            .join("/");
+
         let Some(filename) = path.file_name().map(|s| s.to_string_lossy().to_string()) else {
             eprintln!("Warning found path ending in '...': {}", path.display());
             continue;
         };
 
-        entries.push((path, filename));
+        entries.push((encoded_path, filename));
     }
 
     entries.sort();
@@ -105,6 +120,19 @@ async fn directory(State(root): State<PathBuf>, uri: Uri) -> Result<Response, Re
     };
     Ok(HtmlTemplate(directory).into_response())
 }
+
+// see URL crate
+const SPECIAL_PATH_SEGMENT: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'"')
+    .add(b'<')
+    .add(b'>')
+    .add(b'`')
+    .add(b'#')
+    .add(b'?')
+    .add(b'{')
+    .add(b'}')
+    .add(b'\\');
 
 struct HtmlTemplate<T>(T);
 

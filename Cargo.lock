@@ -606,6 +606,7 @@ dependencies = [
  "askama",
  "axum",
  "clap",
+ "percent-encoding",
  "tokio",
  "tower-http",
 ]
